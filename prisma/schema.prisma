@@ -1,0 +1,159 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum IdeaType {
+  VIDEO
+  MICRO_SAAS
+  GADGET
+  NEWSLETTER_RESEARCH
+}
+
+enum IdeaStatus {
+  BACKLOG
+  APPROVED
+  IN_PROGRESS
+  PUBLISHED
+  ARCHIVED
+}
+
+enum IdeaSource {
+  MANUAL
+  AI_RESEARCH
+}
+
+enum Platform {
+  YOUTUBE
+  X
+  TIKTOK
+  LINKEDIN
+  INSTAGRAM
+  NEWSLETTER
+}
+
+enum CopyStatus {
+  DRAFT
+  APPROVED
+  SCHEDULED
+  PUBLISHED
+}
+
+enum ChannelStatus {
+  NOT_SET_UP
+  IN_PROGRESS
+  LIVE
+}
+
+enum DigestStatus {
+  CANDIDATE
+  INCLUDED
+  SKIPPED
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  name         String?
+  passwordHash String
+  createdAt    DateTime   @default(now())
+  ideas        Idea[]
+  agentRuns    AgentRun[]
+}
+
+model AgentRole {
+  id           String     @id @default(cuid())
+  key          String     @unique
+  name         String
+  title        String
+  description  String
+  systemPrompt String     @db.Text
+  icon         String
+  createdAt    DateTime   @default(now())
+  agentRuns    AgentRun[]
+}
+
+model Idea {
+  id          String            @id @default(cuid())
+  type        IdeaType
+  title       String
+  description String            @db.Text
+  status      IdeaStatus        @default(BACKLOG)
+  source      IdeaSource        @default(MANUAL)
+  createdById String?
+  createdBy   User?             @relation(fields: [createdById], references: [id])
+  copyDrafts  SocialCopyDraft[]
+  agentRuns   AgentRun[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([type, status])
+}
+
+model SocialCopyDraft {
+  id         String     @id @default(cuid())
+  ideaId     String
+  idea       Idea       @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  platform   Platform
+  approach   String     @db.Text
+  draftCopy  String     @db.Text
+  status     CopyStatus @default(DRAFT)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  @@unique([ideaId, platform])
+}
+
+model AgentRun {
+  id          String     @id @default(cuid())
+  roleId      String
+  role        AgentRole  @relation(fields: [roleId], references: [id])
+  ideaId      String?
+  idea        Idea?      @relation(fields: [ideaId], references: [id])
+  input       String     @db.Text
+  output      String     @db.Text
+  model       String
+  createdById String?
+  createdBy   User?      @relation(fields: [createdById], references: [id])
+  createdAt   DateTime   @default(now())
+
+  @@index([roleId, createdAt])
+}
+
+model NewsletterDigestItem {
+  id        String       @id @default(cuid())
+  title     String
+  sourceUrl String
+  summary   String       @db.Text
+  status    DigestStatus @default(CANDIDATE)
+  weekOf    DateTime
+  createdAt DateTime     @default(now())
+
+  @@index([weekOf, status])
+}
+
+model Channel {
+  id        String        @id @default(cuid())
+  platform  Platform      @unique
+  handle    String?
+  status    ChannelStatus @default(NOT_SET_UP)
+  notes     String?       @db.Text
+  updatedAt DateTime      @updatedAt
+}
+
+model MetricSnapshot {
+  id          String   @id @default(cuid())
+  weekOf      DateTime
+  channel     Platform
+  followers   Int?
+  views       Int?
+  conversions Int?
+  notes       String?  @db.Text
+  createdAt   DateTime @default(now())
+
+  @@unique([weekOf, channel])
+}
